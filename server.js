@@ -5,6 +5,22 @@ const express = require('express');
 const app = express();
 require("dotenv").config();
 
+function normalizePort(val) {
+  var port = parseInt(val, 10);
+
+  if (isNaN(port)) {
+    // named pipe
+    return val;
+  }
+
+  if (port >= 0) {
+    // port number
+    return port;
+  }
+
+  return false;
+}
+
 aws.config.loadFromPath('./credentials.json');
 
 // Healthcheck
@@ -65,52 +81,38 @@ app.get('/secrets', function (req, res) {
   });
 });
 
-// function fetchBooks(callback) {
-//   async () => {
-//     try {
-//       // make sure that any items are correctly URL encoded in the connection string
-//       await mssql.connect(process.env.DATASOURCE_URL)
-//       const result = await mssql.query`SELECT * FROM book`
-//       console.dir(result)
-//     } catch (err) {
-//       console.log(err)
-//     }
-//   }
-// }
-
-
-// PROBLEM IS HERE ONWARDS
 app.get('/books', function (req, res) {
-
   const sqlConfig = {
-    user: 'sa',
-    password: 'Secret1234',
-    database: 'dockerdb',
-    server: 'mssql',
-    port: 1433,
+    user: process.env.MSSQL_USER,
+    password: process.env.MSSQL_PASSWORD,
+    database: process.env.MSSQL_DATABASE,
+    server: process.env.MSSQL_SERVER,
+    port: normalizePort(process.env.MSSQL_PORT),
     pool: {
       max: 10,
       min: 0,
       idleTimeoutMillis: 30000
     },
     options: {
+      trustedConnection: true, // for kerboros usage
       encrypt: true, // for azure
       trustServerCertificate: true // change to true for local dev / self-signed certs
     }
   }
 
-  async () => {
-  try {
-    console.log('hit1')
-    // make sure that any items are correctly URL encoded in the connection string
-    mssql.connect(sqlConfig)
-    console.log('hit2')
-    const result = await mssql.query`select * from books`
-    console.log(result)
-  } catch (err) {
-    console.log(err)
-  }
-}
+  mssql.connect(sqlConfig).then(() => mssql.query('select * from book')).then((result) => {
+    var myarr = new Array();
+
+    for (var i = 0; i < result.recordset.length; ++i) {
+      var id = result.recordset[i].id;
+      var title = result.recordset[i].title;
+      myarr.push({ 'Id': id, 'Title': title });
+    }
+
+    res.json(myarr);
+
+    mssql.close();
+  })
 })
 
 // Run Server

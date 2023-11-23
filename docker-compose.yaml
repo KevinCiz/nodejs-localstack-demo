@@ -44,7 +44,12 @@ services:
       - BUCKET_NAME=mybucket
       - SECRETS_ID=MyTestSecret
       - ENVIRONMENT=dev
-      - DATASOURCE_URL="Server=mssql,1433;database=dockerdb;User Id=sa;Password=Secret1234;Encrypt=true"
+      - MSSQL_USER=sa
+      - MSSQL_PASSWORD=Secret1234
+      - MSSQL_DATABASE=dockerdb
+      - MSSQL_SERVER=mssql
+      - MSSQL_PORT=1433
+      
     depends_on:
       - localstack 
 
