@@ -1,7 +1,6 @@
 // Required Modules
-// const { Pool } = require('pg');
-const pg = require('pg');
 const aws = require('aws-sdk');
+const mssql = require('mssql')
 const express = require('express');
 const app = express();
 require("dotenv").config();
@@ -67,57 +66,52 @@ app.get('/secrets', function (req, res) {
 });
 
 // function fetchBooks(callback) {
-//   const config = {
-//     user: 'dockeruser',
-//     host: 'postgres',
-//     database: 'dockerdb',
-//     password: 'dockerpassword',
-//     port: 5432,
+//   async () => {
+//     try {
+//       // make sure that any items are correctly URL encoded in the connection string
+//       await mssql.connect(process.env.DATASOURCE_URL)
+//       const result = await mssql.query`SELECT * FROM book`
+//       console.dir(result)
+//     } catch (err) {
+//       console.log(err)
+//     }
 //   }
-//   const pool = new pg.Pool(config);
-//   pool.connect((err, client, done) => {
-//     if (err) throw err;
-//     client.query('SELECT  * FROM  Book', (err, res) => {
-//       if (err)
-//         console.log(err.stack);
-//       else {
-//         console.log(res.rows);
-//       }
-//       pool.end()
-//     })
-//   });
 // }
 
-function fetchBooks(callback) {
-  const config = {
-    user: process.env.POSTGRES_USER,
-    host: process.env.POSTGRES_HOST,
-    database: process.env.POSTGRES_DB,
-    password: process.env.POSTGRES_PASSWORD,
-    port: process.env.POSTGRES_PORT
-  }
-  const pool = new pg.Pool(config);
-  pool.query("SELECT * FROM Book", (err, data) => {
-    if(err) {
-        return callback(err);
-    }
-    return callback(undefined, data.rows);
-  });
-}
 
+// PROBLEM IS HERE ONWARDS
 app.get('/books', function (req, res) {
-  fetchBooks((err, data) => {
-    if (err) {
-      console.log(err);
+
+  const sqlConfig = {
+    user: 'sa',
+    password: 'Secret1234',
+    database: 'dockerdb',
+    server: 'mssql',
+    port: 1433,
+    pool: {
+      max: 10,
+      min: 0,
+      idleTimeoutMillis: 30000
+    },
+    options: {
+      encrypt: true, // for azure
+      trustServerCertificate: true // change to true for local dev / self-signed certs
     }
-    // res.status(200).send(data);
-    console.log(data);
-    res.write(JSON.stringify(data));
-    res.end();
-  });
-});
+  }
 
-
+  async () => {
+  try {
+    console.log('hit1')
+    // make sure that any items are correctly URL encoded in the connection string
+    mssql.connect(sqlConfig)
+    console.log('hit2')
+    const result = await mssql.query`select * from books`
+    console.log(result)
+  } catch (err) {
+    console.log(err)
+  }
+}
+})
 
 // Run Server
 var server = app.listen(process.env.PORT, function () {

@@ -1,8 +1,35 @@
 version: "3.8"
 
 services:
+  mssql:
+    image: 'mcr.microsoft.com/mssql/server'
+    ports:
+        - '1433:1433'
+    environment:
+        - ACCEPT_EULA=Y
+        - SA_PASSWORD=Secret1234
+    volumes:
+        - './drive:/var/opt/mssql'
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P Secret1234 -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      retries: 10
+      start_period: 10s
+      timeout: 3s
+  msssql.configurator:
+    image: 'mcr.microsoft.com/mssql/server'
+    volumes:
+      - ./init-ms.sql:/docker-entrypoint-initdb.d/init-ms.sql
+    depends_on:
+      mssql:
+        condition: service_healthy
+    command: >
+      bash -c '
+      /opt/mssql-tools/bin/sqlcmd -S mssql -U sa -P Secret1234 -d master -i docker-entrypoint-initdb.d/init-ms.sql;
+      echo "All done!";
+      '
   nodeapplication:
-    container_name: aws-s3-secrets-application
+    container_name: sample-node-app
     build:
       context: ./
       dockerfile: Dockerfile
@@ -13,28 +40,13 @@ services:
       - PORT=3000
       - FILE_NAME=test.txt
       - ENDPOINT=http://localstack:4566
+      - REGION=ap-southeast-1
       - BUCKET_NAME=mybucket
       - SECRETS_ID=MyTestSecret
       - ENVIRONMENT=dev
-      - POSTGRES_USER=dockeruser
-      - POSTGRES_PASSWORD=dockerpassword
-      - POSTGRES_DB=dockerdb
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
+      - DATASOURCE_URL="Server=mssql,1433;database=dockerdb;User Id=sa;Password=Secret1234;Encrypt=true"
     depends_on:
       - localstack 
-    
-  postgres:
-    image: postgres:14-alpine
-    environment:
-      - POSTGRES_USER=dockeruser
-      - POSTGRES_PASSWORD=dockerpassword
-      - POSTGRES_DB=dockerdb
-    ports:
-      - "5432:5432"
-    volumes:
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-      - postgres-data:/var/lib/postgresql/data
 
   localstack:
     container_name: "${LOCALSTACK_DOCKER_NAME-localstack_main}"
@@ -47,6 +59,3 @@ services:
     volumes:
       - ./init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh
       - "/var/run/docker.sock:/var/run/docker.sock"
-
-volumes:
-  postgres-data:
